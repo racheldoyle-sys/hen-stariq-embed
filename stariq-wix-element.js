@@ -7,79 +7,75 @@ class StarIQWixElement extends HTMLElement {
     this.simulator = null;
     this.loading = false;
     this.mounted = false;
+    this.loadToken = 0;
   }
 
   connectedCallback() {
-    // Prevent duplicate initialization
     if (this.loading || this.mounted) return;
 
-    // Keep the simulator inside the Wix Custom Element
-    this.style.display = 'block';
-    this.style.width = '100%';
-    this.style.maxWidth = '100%';
-    this.style.height = '100%';
-    this.style.minHeight = '850px';
-    this.style.boxSizing = 'border-box';
-    this.style.position = 'relative';
+    // Outer boundary protects the Wix header and navigation.
+    Object.assign(this.style, {
+      display: 'block',
+      width: '100%',
+      maxWidth: '100%',
+      height: '100%',
+      minHeight: '850px',
+      boxSizing: 'border-box',
+      position: 'relative',
+      overflow: 'hidden',
+      isolation: 'isolate'
+    });
 
-    // Prevent content from covering the Wix header/navigation
-    this.style.overflow = 'hidden';
-    this.style.isolation = 'isolate';
-
-    // Create the simulator container
+    // The simulator can manage scrolling within this area.
     const container = document.createElement('div');
-
     container.id = 'stariq-simulator';
 
-    container.style.cssText = `
-      width: 100%;
-      max-width: 100%;
-      height: 100%;
-      min-height: 850px;
-      position: relative;
-      box-sizing: border-box;
-      overflow: hidden;
-      margin: 0 auto;
-    `;
+    Object.assign(container.style, {
+      display: 'block',
+      width: '100%',
+      maxWidth: '100%',
+      height: '100%',
+      minHeight: '850px',
+      position: 'relative',
+      boxSizing: 'border-box',
+      overflow: 'visible',
+      margin: '0 auto'
+    });
 
     this.appendChild(container);
     this.container = container;
     this.loading = true;
 
-    // Initialize the STAR-IQ simulator
+    const token = ++this.loadToken;
+
     const startSimulator = () => {
+      if (!this.isConnected || token !== this.loadToken) {
+        return;
+      }
+
       if (
         !window.StarIQ ||
         typeof window.StarIQ.mount !== 'function'
       ) {
-        console.error(
-          'STAR-IQ: Simulator library unavailable.'
-        );
+        console.error('STAR-IQ: Library unavailable.');
         this.loading = false;
         return;
       }
 
       try {
-        this.simulator = window.StarIQ.mount(
-          this.container
-        );
-
+        this.simulator = window.StarIQ.mount(container);
         this.mounted = true;
 
         console.log(
-          'STAR-IQ: Simulator mounted successfully inside Wix.'
+          'STAR-IQ: Simulator mounted inside Wix.'
         );
       } catch (error) {
-        console.error(
-          'STAR-IQ: Simulator mount failed.',
-          error
-        );
+        console.error('STAR-IQ: Mount failed.', error);
       } finally {
         this.loading = false;
       }
     };
 
-    // Use the library if already loaded
     if (
       window.StarIQ &&
       typeof window.StarIQ.mount === 'function'
@@ -88,23 +84,16 @@ class StarIQWixElement extends HTMLElement {
       return;
     }
 
-    // Load the developer's original STAR-IQ script
     const script = document.createElement('script');
 
     script.src =
       'https://racheldoyle-sys.github.io/hen-stariq-embed/stariq-embed.js?v=1.2.0';
 
     script.async = true;
-
-    script.onload = () => {
-      startSimulator();
-    };
+    script.onload = startSimulator;
 
     script.onerror = () => {
-      console.error(
-        'STAR-IQ: Failed to load simulator script.'
-      );
-
+      console.error('STAR-IQ: Script failed to load.');
       this.loading = false;
     };
 
@@ -112,7 +101,8 @@ class StarIQWixElement extends HTMLElement {
   }
 
   disconnectedCallback() {
-    // Clean up when Wix removes the element
+    ++this.loadToken;
+
     if (
       this.simulator &&
       typeof this.simulator.unmount === 'function'
@@ -120,10 +110,7 @@ class StarIQWixElement extends HTMLElement {
       try {
         this.simulator.unmount();
       } catch (error) {
-        console.warn(
-          'STAR-IQ: Cleanup warning.',
-          error
-        );
+        console.warn('STAR-IQ: Cleanup warning.', error);
       }
     }
 
@@ -132,11 +119,10 @@ class StarIQWixElement extends HTMLElement {
     this.loading = false;
     this.mounted = false;
 
-    this.innerHTML = '';
+    this.replaceChildren();
   }
 }
 
-// Register the Custom Element with Wix
 if (!customElements.get('stariq-wix-element')) {
   customElements.define(
     'stariq-wix-element',
