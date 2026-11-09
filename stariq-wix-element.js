@@ -2,25 +2,27 @@
 class StarIQWixElement extends HTMLElement {
   constructor() {
     super();
+    this.container = null;
     this.simulator = null;
     this.loading = false;
   }
 
   connectedCallback() {
-    if (this.loading || this.simulator) return;
+    if (this.loading || this.container) return;
 
     this.style.display = 'block';
     this.style.width = '100%';
-    this.style.height = '100%';
+    this.style.maxWidth = '100%';
     this.style.minHeight = '850px';
+    this.style.boxSizing = 'border-box';
+    this.style.position = 'relative';
 
     const container = document.createElement('div');
-    container.style.cssText = `
-      width: 100%;
-      height: 100%;
-      min-height: 850px;
-      position: relative;
-    `;
+    container.style.width = '100%';
+    container.style.maxWidth = '100%';
+    container.style.minHeight = '850px';
+    container.style.position = 'relative';
+    container.style.boxSizing = 'border-box';
 
     this.appendChild(container);
     this.container = container;
@@ -29,16 +31,15 @@ class StarIQWixElement extends HTMLElement {
     const startSimulator = () => {
       try {
         this.simulator = StarIQ.mount(this.container);
-        console.log('STAR-IQ: Wix Custom Element mounted.');
+        console.log('STAR-IQ mounted inside Wix Custom Element.');
       } catch (error) {
-        console.error('STAR-IQ: Mount failed:', error);
+        console.error('STAR-IQ mount failed:', error);
       } finally {
         this.loading = false;
       }
     };
 
-    if (typeof StarIQ !== 'undefined' &&
-        typeof StarIQ.mount === 'function') {
+    if (window.StarIQ && typeof window.StarIQ.mount === 'function') {
       startSimulator();
       return;
     }
@@ -48,9 +49,8 @@ class StarIQWixElement extends HTMLElement {
       'https://racheldoyle-sys.github.io/hen-stariq-embed/stariq-embed.js?v=1.2.0';
 
     script.onload = startSimulator;
-
     script.onerror = () => {
-      console.error('STAR-IQ: Unable to load simulator.');
+      console.error('STAR-IQ script failed to load.');
       this.loading = false;
     };
 
@@ -64,6 +64,7 @@ class StarIQWixElement extends HTMLElement {
     }
 
     this.simulator = null;
+    this.container = null;
     this.loading = false;
   }
 }
