@@ -8,12 +8,14 @@ class StarIQWixElement extends HTMLElement {
     this.loading = false;
     this.mounted = false;
     this.loadToken = 0;
+
+    this.handleWheel = this.handleWheel.bind(this);
   }
 
   connectedCallback() {
     if (this.loading || this.mounted) return;
 
-    // Outer boundary protects the Wix header and navigation.
+    // Keep STAR-IQ contained inside its Wix section.
     Object.assign(this.style, {
       display: 'block',
       width: '100%',
@@ -26,8 +28,16 @@ class StarIQWixElement extends HTMLElement {
       isolation: 'isolate'
     });
 
-    // The simulator can manage scrolling within this area.
+    // Capture mouse-wheel events before the simulator does.
+    this.addEventListener(
+      'wheel',
+      this.handleWheel,
+      { passive: false, capture: true }
+    );
+
+    // Create the simulator mounting container.
     const container = document.createElement('div');
+
     container.id = 'stariq-simulator';
 
     Object.assign(container.style, {
@@ -67,7 +77,7 @@ class StarIQWixElement extends HTMLElement {
         this.mounted = true;
 
         console.log(
-          'STAR-IQ: Simulator mounted inside Wix.'
+          'STAR-IQ: Simulator mounted successfully inside Wix.'
         );
       } catch (error) {
         console.error('STAR-IQ: Mount failed.', error);
@@ -84,6 +94,7 @@ class StarIQWixElement extends HTMLElement {
       return;
     }
 
+    // Load the developer's original STAR-IQ library.
     const script = document.createElement('script');
 
     script.src =
@@ -100,9 +111,37 @@ class StarIQWixElement extends HTMLElement {
     document.head.appendChild(script);
   }
 
+  handleWheel(event) {
+    // Preserve browser zoom shortcuts.
+    if (event.ctrlKey) return;
+
+    // Prevent STAR-IQ from capturing mouse-wheel scrolling.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const multiplier =
+      event.deltaMode === 1 ? 16 :
+      event.deltaMode === 2 ? window.innerHeight : 1;
+
+    // Scroll the Wix webpage instead of the simulator.
+    window.scrollBy({
+      top: event.deltaY * multiplier,
+      left: event.deltaX * multiplier,
+      behavior: 'instant'
+    });
+  }
+
   disconnectedCallback() {
     ++this.loadToken;
 
+    // Remove the mouse-wheel listener.
+    this.removeEventListener(
+      'wheel',
+      this.handleWheel,
+      true
+    );
+
+    // Clean up the simulator when Wix removes the element.
     if (
       this.simulator &&
       typeof this.simulator.unmount === 'function'
@@ -123,6 +162,7 @@ class StarIQWixElement extends HTMLElement {
   }
 }
 
+// Register the Custom Element with Wix.
 if (!customElements.get('stariq-wix-element')) {
   customElements.define(
     'stariq-wix-element',
