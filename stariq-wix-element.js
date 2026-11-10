@@ -111,6 +111,7 @@ class StarIQWixElement extends HTMLElement {
       }
     };
 
+    // Reuse the library if already loaded.
     if (
       window.StarIQ &&
       typeof window.StarIQ.mount === "function"
@@ -119,6 +120,7 @@ class StarIQWixElement extends HTMLElement {
       return;
     }
 
+    // Load the developer-provided simulator.
     const script = document.createElement("script");
 
     script.src =
@@ -140,6 +142,7 @@ class StarIQWixElement extends HTMLElement {
     const eventName = detail.event;
     const eventProps = detail.props || {};
 
+    // Match the simulator event to its HubSpot event.
     const hubspotName = STAR_IQ_HUBSPOT_EVENTS[eventName];
 
     console.log(
@@ -148,9 +151,10 @@ class StarIQWixElement extends HTMLElement {
       eventProps
     );
 
-    // Ignore events outside our six primary events.
+    // Only forward our six primary tracking events.
     if (!hubspotName) return;
 
+    // HubSpot tracking must be available.
     if (
       !window._hsq ||
       typeof window._hsq.push !== "function"
@@ -164,29 +168,30 @@ class StarIQWixElement extends HTMLElement {
 
     const properties = {};
 
-    // Map the four verified custom properties
-    // for STAR-IQ Element Clicked.
+    // Map STAR-IQ click data to HubSpot properties.
     if (eventName === "star_iq_element_clicked") {
-      const propertyNames = [
-        "element_name",
-        "element_id",
-        "current_stage",
-        "exploration_mode"
-      ];
+      const propertyMapping = {
+        element_name: "element_name",
+        element_id: "star_iq_element_id",
+        current_stage: "current_stage",
+        exploration_mode: "exploration_mode"
+      };
 
-      propertyNames.forEach((propertyName) => {
-        const value = eventProps[propertyName];
+      Object.entries(propertyMapping).forEach(
+        ([sourceName, hubspotName]) => {
+          const value = eventProps[sourceName];
 
-        if (
-          typeof value === "string" &&
-          value.trim() !== ""
-        ) {
-          properties[propertyName] = value;
+          if (
+            typeof value === "string" &&
+            value.trim() !== ""
+          ) {
+            properties[hubspotName] = value;
+          }
         }
-      });
+      );
     }
 
-    // Send the mapped event to HubSpot.
+    // Send event and properties to HubSpot.
     window._hsq.push([
       "trackCustomBehavioralEvent",
       {
@@ -237,6 +242,7 @@ class StarIQWixElement extends HTMLElement {
       true
     );
 
+    // Clean up simulator if supported.
     if (
       this.simulator &&
       typeof this.simulator.unmount === "function"
@@ -260,6 +266,7 @@ class StarIQWixElement extends HTMLElement {
   }
 }
 
+// Register the Wix Custom Element.
 if (!customElements.get("stariq-wix-element")) {
   customElements.define(
     "stariq-wix-element",
