@@ -36,7 +36,7 @@ class StarIQWixElement extends HTMLElement {
   connectedCallback() {
     if (this.loading || this.mounted) return;
 
-    // Preserve the existing Wix layout and navigation fix.
+    // Preserve Wix layout and navigation behavior.
     Object.assign(this.style, {
       display: "block",
       width: "100%",
@@ -49,13 +49,13 @@ class StarIQWixElement extends HTMLElement {
       isolation: "isolate"
     });
 
-    // Preserve mouse-wheel scrolling.
+    // Preserve existing mouse-wheel scrolling.
     this.addEventListener("wheel", this.handleWheel, {
       passive: false,
       capture: true
     });
 
-    // Listen for events emitted by the STAR-IQ simulator.
+    // Listen for STAR-IQ simulator events.
     this.addEventListener(
       "stariq:event",
       this.handleStarIQEvent,
@@ -111,7 +111,6 @@ class StarIQWixElement extends HTMLElement {
       }
     };
 
-    // Reuse the simulator library if it is already loaded.
     if (
       window.StarIQ &&
       typeof window.StarIQ.mount === "function"
@@ -120,7 +119,6 @@ class StarIQWixElement extends HTMLElement {
       return;
     }
 
-    // Load the developer-provided STAR-IQ simulator.
     const script = document.createElement("script");
 
     script.src =
@@ -140,22 +138,19 @@ class StarIQWixElement extends HTMLElement {
   handleStarIQEvent(event) {
     const detail = event.detail || {};
     const eventName = detail.event;
+    const eventProps = detail.props || {};
 
-    // Find the corresponding HubSpot event identifier.
     const hubspotName = STAR_IQ_HUBSPOT_EVENTS[eventName];
 
     console.log(
       "STAR-IQ EVENT:",
       eventName,
-      detail.props
+      eventProps
     );
 
-    // Ignore simulator events that are not part of
-    // our six primary HubSpot tracking events.
+    // Ignore events outside our six primary events.
     if (!hubspotName) return;
 
-    // HubSpot tracking must be available.
-    // The site's consent settings must be respected.
     if (
       !window._hsq ||
       typeof window._hsq.push !== "function"
@@ -167,20 +162,31 @@ class StarIQWixElement extends HTMLElement {
       return;
     }
 
-    // Prepare custom event properties.
     const properties = {};
 
-    // Capture the actual feature clicked in STAR-IQ.
-    // This property has been created in HubSpot.
-    if (
-      eventName === "star_iq_element_clicked" &&
-      typeof detail.props?.element_name === "string"
-    ) {
-      properties.element_name =
-        detail.props.element_name;
+    // Map the four verified custom properties
+    // for STAR-IQ Element Clicked.
+    if (eventName === "star_iq_element_clicked") {
+      const propertyNames = [
+        "element_name",
+        "element_id",
+        "current_stage",
+        "exploration_mode"
+      ];
+
+      propertyNames.forEach((propertyName) => {
+        const value = eventProps[propertyName];
+
+        if (
+          typeof value === "string" &&
+          value.trim() !== ""
+        ) {
+          properties[propertyName] = value;
+        }
+      });
     }
 
-    // Send the event to HubSpot.
+    // Send the mapped event to HubSpot.
     window._hsq.push([
       "trackCustomBehavioralEvent",
       {
@@ -217,8 +223,6 @@ class StarIQWixElement extends HTMLElement {
   }
 
   disconnectedCallback() {
-    // Prevent pending script loads from mounting
-    // after the element has been disconnected.
     ++this.loadToken;
 
     this.removeEventListener(
@@ -233,7 +237,6 @@ class StarIQWixElement extends HTMLElement {
       true
     );
 
-    // Clean up the simulator if supported.
     if (
       this.simulator &&
       typeof this.simulator.unmount === "function"
@@ -257,7 +260,6 @@ class StarIQWixElement extends HTMLElement {
   }
 }
 
-// Register the Wix Custom Element.
 if (!customElements.get("stariq-wix-element")) {
   customElements.define(
     "stariq-wix-element",
